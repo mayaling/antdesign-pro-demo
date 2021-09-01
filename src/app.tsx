@@ -1,11 +1,19 @@
-import type { Settings as LayoutSettings } from '@ant-design/pro-layout';
+import type { Settings as LayoutSettings,MenuDataItem  } from '@ant-design/pro-layout';
 import { PageLoading } from '@ant-design/pro-layout';
 import { notification } from 'antd';
 import type { RequestConfig, RunTimeLayoutConfig } from 'umi';
+import errorHandler  from "@/util/errorHandle"
 import { history, Link } from 'umi';
 import RightContent from '@/components/RightContent';
 import Footer from '@/components/Footer';
-import { currentUser as queryCurrentUser } from './services/ant-design-pro/api';
+import fixMenuItemIcon from '@/util/fixMenuItemIcon'
+import _ from 'lodash'
+
+// import { currentUser as queryCurrentUser } from './services/ant-design-pro/api';
+import { currentUser as queryCurrentUser , getMenuData } from './services/api/api';
+
+
+
 import { BookOutlined, LinkOutlined } from '@ant-design/icons';
 
 const isDev = process.env.NODE_ENV === 'development';
@@ -22,11 +30,13 @@ export const initialStateConfig = {
 export async function getInitialState(): Promise<{
   settings?: Partial<LayoutSettings>;
   currentUser?: API.CurrentUser;
+  menuData?: API.MenuData// 动态路由添加
   fetchUserInfo?: () => Promise<API.CurrentUser | undefined>;
 }> {
   const fetchUserInfo = async () => {
     try {
       const currentUser = await queryCurrentUser();
+      console.log(currentUser)
       return currentUser;
     } catch (error) {
       history.push(loginPath);
@@ -36,14 +46,28 @@ export async function getInitialState(): Promise<{
   // 如果是登录页面，不执行
   if (history.location.pathname !== loginPath) {
     const currentUser = await fetchUserInfo();
+    //add:获取到当前用户，请求菜单
+    const menuData = await getMenuData();// 动态路由添加
+    console.log(menuData,89080)
+    const {data} = menuData || {}
+    const route = data[0].subResources
+    const handleTree = (data) => {
+      return (data || []).map((item) => {
+        return  [{ ...item, path: item.url, name: item.resourceName,routes: handleTree(item.subResources) }, ];
+      });
+    };
+   
+    const menuList = handleTree(route)
     return {
       fetchUserInfo,
+      menuList,
       currentUser,
       settings: {},
     };
   }
   return {
     fetchUserInfo,
+    menuList: {},
     settings: {},
   };
 }
@@ -86,23 +110,64 @@ export async function getInitialState(): Promise<{
     504: The gateway timed out. ',
  * @see https://beta-pro.ant.design/docs/request-cn
  */
-export const request: RequestConfig = {
-  errorHandler: (error: any) => {
-    const { response } = error;
+// export const request: RequestConfig = {
+//   // errorHandler: (error: any) => {
+//   //   const { response } = error;
+//   //   console.log(response)
+//   //   if (!response) {
+//   //     notification.error({
+//   //       description: '您的网络发生异常，无法连接服务器',
+//   //       message: '网络异常',
+//   //     });
+//   //   }
+//   //   throw error;
+//   // },
+//   errorConfig: {
+//     adaptor: (resData) => {
+//       return {
+//         ...resData,
+//         success: resData.success,
+//         errorMessage: resData.msg,
+//       };
+//     },
+//   },
+// };
 
-    if (!response) {
-      notification.error({
-        description: '您的网络发生异常，无法连接服务器',
-        message: '网络异常',
-      });
-    }
-    throw error;
+export const request: RequestConfig = {
+  credentials: 'include',
+  errorHandler,
+  // 自定义端口规范
+  errorConfig: {
+    adaptor: res => {
+      return {
+        success: res.success,
+        data:res.data,
+        errorCode:res.code,
+        errorMessage: res.msg,
+      };
+    },
   },
-};
+  middlewares: [],
+}
 
 // ProLayout 支持的api https://procomponents.ant.design/components/layout
 export const layout: RunTimeLayoutConfig = ({ initialState }) => {
   return {
+    // menuDataRender: (menuData) => initialState.menuData || menuData, //这样写图标展示不出来
+    menuDataRender: () =>{
+      return  fixMenuItemIcon(initialState.menuList)  //这样写可以显示图标
+    },
+    // menu: {
+    //   // 每当 initialState?.currentUser?.userid 发生修改时重新执行 request
+    //   params: {
+    //     userId: initialState?.currentUser?.userid,
+    //   },
+    //   request: async (params, defaultMenuData) => {
+    //     // initialState.currentUser 中包含了所有用户信息
+    //     const menuData = await getMenuData();
+    //     return menuData;
+    //   },
+    // },
     rightContentRender: () => <RightContent />,
     disableContentMargin: false,
     waterMarkProps: {

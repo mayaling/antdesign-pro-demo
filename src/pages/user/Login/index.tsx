@@ -11,8 +11,9 @@ import React, { useState } from 'react';
 import ProForm, { ProFormCaptcha, ProFormCheckbox, ProFormText } from '@ant-design/pro-form';
 import { useIntl, Link, history, FormattedMessage, SelectLang, useModel } from 'umi';
 import Footer from '@/components/Footer';
-import { login } from '@/services/ant-design-pro/api';
-import { getFakeCaptcha } from '@/services/ant-design-pro/login';
+// import { login } from '@/services/ant-design-pro/api';
+import { login } from '@/services/api/login';
+// import { getFakeCaptcha } from '@/services/ant-design-pro/login';
 
 import styles from './index.less';
 
@@ -42,13 +43,14 @@ const goto = () => {
 const Login: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [userLoginState, setUserLoginState] = useState<API.LoginResult>({});
-  const [type, setType] = useState<string>('account');
+  const [type] = useState<string>('account');
   const { initialState, setInitialState } = useModel('@@initialState');
 
   const intl = useIntl();
 
   const fetchUserInfo = async () => {
     const userInfo = await initialState?.fetchUserInfo?.();
+    console.log(userInfo)
     if (userInfo) {
       setInitialState({
         ...initialState,
@@ -61,8 +63,9 @@ const Login: React.FC = () => {
     setSubmitting(true);
     try {
       // 登录
-      const msg = await login({ ...values, type });
-      if (msg.status === 'ok') {
+      const res = await login({ ...values });
+      console.log(values,res)
+      if (res.success === true) {
         const defaultloginSuccessMessage = intl.formatMessage({
           id: 'pages.login.success',
           defaultMessage: '登录成功！',
@@ -73,18 +76,20 @@ const Login: React.FC = () => {
         return;
       }
       // 如果失败去设置用户错误信息
-      setUserLoginState(msg);
+      setUserLoginState(res);
     } catch (error) {
-      const defaultloginFailureMessage = intl.formatMessage({
-        id: 'pages.login.failure',
-        defaultMessage: '登录失败，请重试！',
-      });
+      // console.log(error)
+      // const defaultloginFailureMessage = intl.formatMessage({
+      //   id: 'pages.login.failure',
+      //   defaultMessage: '登录失败，请重试！',
+      // });
 
-      message.error(defaultloginFailureMessage);
+      // message.error(defaultloginFailureMessage);
     }
     setSubmitting(false);
   };
-  const { status, type: loginType } = userLoginState;
+  const { success, type: loginType } = userLoginState;
+  console.log(success)
 
   return (
     <div className={styles.container}>
@@ -134,18 +139,18 @@ const Login: React.FC = () => {
               />
             </Tabs> */}
 
-            {status === 'error' && loginType === 'account' && (
+            {success === false  && (
               <LoginMessage
                 content={intl.formatMessage({
                   id: 'pages.login.accountLogin.errorMessage',
-                  defaultMessage: '账户或密码错误（admin/ant.design)',
+                  defaultMessage: '账户或密码错误',
                 })}
               />
             )}
             {type === 'account' && (
               <>
                 <ProFormText
-                  name="username"
+                  name="un"
                   fieldProps={{
                     size: 'large',
                     prefix: <UserOutlined className={styles.prefixIcon} />,
@@ -167,7 +172,7 @@ const Login: React.FC = () => {
                   ]}
                 />
                 <ProFormText.Password
-                  name="password"
+                  name="pw"
                   fieldProps={{
                     size: 'large',
                     prefix: <LockOutlined className={styles.prefixIcon} />,
@@ -191,7 +196,7 @@ const Login: React.FC = () => {
               </>
             )}
 
-            {status === 'error' && loginType === 'mobile' && <LoginMessage content="验证码错误" />}
+            {/* {status === 'error' && loginType === 'mobile' && <LoginMessage content="验证码错误" />}
             {type === 'mobile' && (
               <>
                 <ProFormText
@@ -272,7 +277,7 @@ const Login: React.FC = () => {
                   }}
                 />
               </>
-            )}
+            )} */}
             {/* <div
               style={{
                 marginBottom: 24,
